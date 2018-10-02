@@ -16,6 +16,8 @@ import (
 	"github.com/docker/machine/libmachine/state"
 
 	"github.com/rackspace/gophercloud"
+
+  "github.com/nightlyone/lockfile"
 )
 
 type Driver struct {
@@ -754,6 +756,18 @@ func (d *Driver) createMachine() error {
 func (d *Driver) assignFloatingIP() error {
 	var err error
 
+  lock, err := New(filepath.Join(os.TempDir(), "/tmp/docker-machine-openstack-assignfloatingip.lck"))
+
+  if err != nil {
+		return fmt.Errorf("Cannot init lock. reason: %v", err))
+  }
+  err = lock.TryLock()
+
+  // Error handling is essential, as we only try to get the lock.
+  if err != nil {
+		return fmt.Errorf("Cannot lock %q, reason: %v", lock, err))
+  }
+
 	if d.ComputeNetwork {
 		err = d.initCompute()
 	} else {
@@ -805,6 +819,8 @@ func (d *Driver) assignFloatingIP() error {
 		return err
 	}
 	d.IPAddress = floatingIP.Ip
+
+  lock.Unlock()
 	return nil
 }
 
